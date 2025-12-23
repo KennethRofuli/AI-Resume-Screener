@@ -136,6 +136,111 @@ class SkillExtractor:
             'Market Research', 'Campaign Management', 'Lead Generation',
             'Sales', 'Negotiation', 'Cold Calling', 'B2B Sales', 'B2C Sales',
             'Customer Relationship Management', 'Sales Strategy'
+        ],
+        
+        # Construction & Trades
+        'construction': [
+            'Carpentry', 'Electrical', 'Plumbing', 'HVAC', 'Welding',
+            'Blueprint Reading', 'Construction Management', 'Project Estimation',
+            'Building Codes', 'Safety Compliance', 'OSHA', 'Equipment Operation',
+            'Concrete', 'Framing', 'Roofing', 'Drywall', 'Painting',
+            'Masonry', 'Tile Setting', 'Flooring', 'Demolition',
+            'Site Preparation', 'Excavation', 'Heavy Equipment',
+            'Crane Operation', 'Forklift', 'Scaffolding'
+        ],
+        
+        # Retail & Customer Service
+        'retail': [
+            'Customer Service', 'Retail Sales', 'Cash Handling', 'Point of Sale',
+            'Inventory Management', 'Merchandising', 'Visual Merchandising',
+            'Stock Management', 'Loss Prevention', 'Product Knowledge',
+            'Upselling', 'Cross-selling', 'Returns Processing', 'Store Operations',
+            'Opening Procedures', 'Closing Procedures', 'Team Leadership',
+            'Customer Relations', 'Complaint Resolution', 'Sales Goals',
+            'Till Operation', 'Store Cleaning', 'Product Placement'
+        ],
+        
+        # Education & Training
+        'education': [
+            'Teaching', 'Curriculum Development', 'Lesson Planning',
+            'Classroom Management', 'Educational Technology', 'Assessment',
+            'Differentiated Instruction', 'Student Engagement', 'Tutoring',
+            'Training', 'Workshop Facilitation', 'E-Learning', 'LMS',
+            'Blackboard', 'Canvas', 'Moodle', 'Instructional Design',
+            'Special Education', 'IEP', '504 Plans', 'Parent Communication',
+            'Literacy', 'STEM Education', 'Educational Standards'
+        ],
+        
+        # Legal & Compliance
+        'legal': [
+            'Legal Research', 'Contract Review', 'Legal Writing',
+            'Case Management', 'Litigation', 'Compliance', 'Regulatory Affairs',
+            'Due Diligence', 'Legal Analysis', 'Paralegal', 'Court Procedures',
+            'Discovery', 'Depositions', 'Trial Preparation', 'Legal Software',
+            'Westlaw', 'LexisNexis', 'Corporate Law', 'Intellectual Property',
+            'Employment Law', 'Real Estate Law', 'Family Law', 'Criminal Law'
+        ],
+        
+        # Automotive & Mechanical
+        'automotive': [
+            'Automotive Repair', 'Diagnostics', 'Engine Repair', 'Transmission',
+            'Brake Systems', 'Electrical Systems', 'HVAC Systems', 'Oil Changes',
+            'Tire Service', 'Wheel Alignment', 'Suspension', 'Exhaust Systems',
+            'ASE Certification', 'Scan Tools', 'Preventive Maintenance',
+            'Customer Service', 'Parts Ordering', 'Shop Management',
+            'Hybrid Vehicles', 'Electric Vehicles', 'Diesel Engines'
+        ],
+        
+        # Hospitality & Tourism
+        'hospitality': [
+            'Hotel Management', 'Front Desk', 'Guest Relations', 'Reservations',
+            'Housekeeping', 'Concierge', 'Event Planning', 'Banquet Services',
+            'Food & Beverage', 'Restaurant Management', 'Bar Service',
+            'Hospitality Software', 'Opera PMS', 'Travel Planning',
+            'Tour Guiding', 'Customer Satisfaction', 'Conflict Resolution',
+            'Multi-tasking', 'Revenue Management', 'Booking Systems'
+        ],
+        
+        # Manufacturing & Production
+        'manufacturing': [
+            'Manufacturing', 'Production Planning', 'Quality Control',
+            'Quality Assurance', 'Lean Manufacturing', 'Six Sigma', 'ISO 9001',
+            'Assembly', 'Machine Operation', 'CNC', 'Lathe', 'Mill',
+            'CAD/CAM', 'Process Improvement', 'Root Cause Analysis',
+            'GMP', 'Standard Operating Procedures', 'Production Scheduling',
+            'Materials Planning', 'Inventory Control', 'Preventive Maintenance'
+        ],
+        
+        # Transportation & Logistics
+        'logistics': [
+            'Logistics', 'Supply Chain Management', 'Warehouse Management',
+            'Inventory Control', 'Shipping', 'Receiving', 'Distribution',
+            'Transportation', 'Route Planning', 'Fleet Management',
+            'Freight', 'Import/Export', 'Customs', 'Procurement',
+            'Vendor Management', 'ERP Systems', 'WMS', 'Forklift Operation',
+            'Loading/Unloading', 'Order Fulfillment', 'DOT Regulations',
+            'CDL', 'Delivery', 'Package Handling'
+        ],
+        
+        # Human Resources
+        'human_resources': [
+            'Recruitment', 'Talent Acquisition', 'Interviewing', 'Onboarding',
+            'Employee Relations', 'Performance Management', 'Training & Development',
+            'Benefits Administration', 'Payroll', 'HRIS', 'HR Compliance',
+            'Employment Law', 'Conflict Resolution', 'Succession Planning',
+            'Compensation', 'Employee Engagement', 'Organizational Development',
+            'Change Management', 'Diversity & Inclusion', 'ATS', 'Workday'
+        ],
+        
+        # Security & Safety
+        'security': [
+            'Security', 'Surveillance', 'Access Control', 'Patrol',
+            'Incident Response', 'Emergency Response', 'Loss Prevention',
+            'Risk Assessment', 'Safety Procedures', 'CCTV', 'Alarm Systems',
+            'Security Clearance', 'Conflict De-escalation', 'Report Writing',
+            'Physical Security', 'Cybersecurity', 'Information Security',
+            'Network Security', 'Penetration Testing', 'Security Audits',
+            'Firewalls', 'VPN', 'Encryption', 'Threat Analysis'
         ]
     }
     

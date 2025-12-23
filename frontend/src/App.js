@@ -8,6 +8,7 @@ import { analyzeResume } from './services/api';
 
 function App() {
   const [resumeFile, setResumeFile] = useState(null);
+  const [resumeText, setResumeText] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [jobUrl, setJobUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -41,8 +42,16 @@ function App() {
         return;
       }
 
-      const data = await analyzeResume(resumeFile, jobText);
-      setResults(data);
+      // Read the resume file as text
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const text = e.target.result;
+        setResumeText(text);
+        
+        const data = await analyzeResume(resumeFile, jobText);
+        setResults(data);
+      };
+      reader.readAsText(resumeFile);
     } catch (err) {
       setError(err.message || 'An error occurred during analysis');
     } finally {
@@ -52,6 +61,7 @@ function App() {
 
   const handleReset = () => {
     setResumeFile(null);
+    setResumeText('');
     setJobDescription('');
     setJobUrl('');
     setResults(null);
@@ -107,7 +117,11 @@ function App() {
             <button className="reset-button" onClick={handleReset}>
               ← Analyze Another Resume
             </button>
-            <AnalysisResults results={results} />
+            <AnalysisResults 
+              results={results} 
+              resumeText={resumeText}
+              jobDescription={jobDescription}
+            />
           </div>
         )}
 

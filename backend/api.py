@@ -14,6 +14,8 @@ from pathlib import Path
 from resume_screener import ResumeAnalyzer
 from resume_screener.bias_detection import BiasDetector
 from resume_screener.explainability.enhanced_explainer import EnhancedExplainabilityEngine
+from feedback_storage import get_feedback_storage
+import uuid
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -74,6 +76,20 @@ class BiasCheckResponse(BaseModel):
     job_risk: Optional[str]
     warnings: List[str]
     recommendations: List[str]
+
+
+class FeedbackRequest(BaseModel):
+    """Request model for user feedback"""
+    session_id: str = Field(..., description="Unique session identifier")
+    overall_score: float = Field(..., description="System's calculated score")
+    user_rating: Optional[int] = Field(None, ge=1, le=5, description="User rating (1-5)")
+    was_helpful: Optional[bool] = Field(None, description="Was the analysis helpful?")
+    comments: Optional[str] = Field(None, description="User comments")
+    resume_text: Optional[str] = Field(None, description="Resume content (for training)")
+    job_description: Optional[str] = Field(None, description="Job description")
+    matched_skills: Optional[List[str]] = Field(None, description="Matched skills")
+    missing_skills: Optional[List[str]] = Field(None, description="Missing skills")
+    score_breakdown: Optional[dict] = Field(None, description="Score breakdown")
 
 
 # API Endpoints
@@ -377,6 +393,71 @@ async def get_skill_database():
             for category, skills in extractor.SKILL_DATABASE.items()
         }
     }
+
+
+@app.post("/api/feedback")
+async def submit_feedback(feedback: FeedbackRequest):
+    """
+    Submit user feedback on analysis results
+    
+    Args:
+        feedback: FeedbackRequest with user's feedback
+        
+    Returns:
+        Success status and message
+    """
+    try:
+        storage = get_feedback_storage()
+        
+        success = storage.save_feedback(
+            session_id=feedback.session_id,
+            overall_score=feedback.overall_score,
+            user_rating=feedback.user_rating,
+            was_helpful=feedback.was_helpful,
+            comments=feedback.comments,
+            resume_text=feedback.resume_text,
+            job_description=feedback.job_description,
+            matched_skills=feedback.matched_skills,
+            missing_skills=feedback.missing_skills,
+            score_breakdown=feedback.score_breakdown
+        )
+        
+        if success:
+            return {
+                "status": "success",
+                "message": "Thank you for your feedback! It helps us improve."
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save feedback")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Feedback submission failed: {str(e)}")
+
+
+@app.get("/api/feedback/stats")
+async def get_feedback_stats():
+    """Get feedback statistics"""
+    try:
+        storage = get_feedback_storage()
+        stats = storage.get_statistics()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+
+
+@app.post("/api/feedback/export")
+async def export_training_data():
+    """Export feedback data for model training"""
+    try:
+        storage = get_feedback_storage()
+        count = storage.export_training_data()
+        return {
+            "status": "success",
+            "message": f"Exported {count} training examples",
+            "file": "training_data.json"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 
 if __name__ == "__main__":

@@ -2,8 +2,9 @@ import React from 'react';
 import './AnalysisResults.css';
 import ScoreCard from './ScoreCard';
 import SkillsChart from './SkillsChart';
+import FeedbackForm from './FeedbackForm';
 
-const AnalysisResults = ({ results }) => {
+const AnalysisResults = ({ results, resumeText, jobDescription }) => {
   const getScoreColor = (score) => {
     if (score >= 85) return '#4caf50';
     if (score >= 70) return '#2196f3';
@@ -174,6 +175,13 @@ const AnalysisResults = ({ results }) => {
           </ul>
         </div>
       )}
+
+      {/* Feedback Form */}
+      <FeedbackForm 
+        results={results} 
+        resumeText={resumeText} 
+        jobDescription={jobDescription} 
+      />
     </div>
   );
 };
