@@ -72,7 +72,7 @@ function App() {
     <div className="App">
       <header className="App-header">
         <div className="header-content">
-          <h1>🎯 AI Resume Screener</h1>
+          <h1>AI Resume Screener</h1>
           <p>Intelligent resume screening powered by NLP and machine learning</p>
         </div>
       </header>

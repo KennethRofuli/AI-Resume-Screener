@@ -6,12 +6,12 @@
 
 .score-header {
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 2rem;
   display: flex;
   gap: 2rem;
   align-items: center;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e8e8e8;
 }
 
 .score-circle {
@@ -56,11 +56,11 @@
 .confidence-badge {
   display: inline-block;
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #1a1a1a;
   color: white;
-  border-radius: 20px;
+  border-radius: 4px;
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .score-breakdown {
@@ -94,15 +94,15 @@
 }
 
 .skill-badge.matched {
-  background: #e8f5e9;
-  color: #2e7d32;
-  border: 1px solid #a5d6a7;
+  background: #fafafa;
+  color: #1a1a1a;
+  border: 1px solid #1a1a1a;
 }
 
 .skill-badge.missing {
-  background: #ffebee;
-  color: #c62828;
-  border: 1px solid #ef9a9a;
+  background: #ffffff;
+  color: #757575;
+  border: 1px solid #d0d0d0;
 }
 
 .no-skills {
@@ -139,12 +139,12 @@
 }
 
 .strength-item .bullet {
-  background: #4caf50;
+  background: #1a1a1a;
   color: white;
 }
 
 .weakness-item .bullet {
-  background: #ff9800;
+  background: #757575;
   color: white;
 }
 
@@ -159,7 +159,8 @@
 }
 
 .suggestions-card {
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
 }
 
 .explanation-text {

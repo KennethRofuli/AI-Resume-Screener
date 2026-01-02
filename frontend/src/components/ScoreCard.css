@@ -1,15 +1,14 @@
 .score-card {
   background: white;
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 1.5rem;
   text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid #e8e8e8;
+  transition: border-color 0.2s;
 }
 
 .score-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #bdbdbd;
 }
 
 .score-card-icon {

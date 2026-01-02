@@ -11,25 +11,25 @@
 .tab {
   flex: 1;
   padding: 0.8rem 1rem;
-  border: 2px solid #e0e0e0;
+  border: 1px solid #e0e0e0;
   background: white;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
-  font-weight: 500;
-  color: #666;
+  font-weight: 400;
+  color: #757575;
   transition: all 0.2s;
 }
 
 .tab:hover {
-  border-color: #667eea;
-  color: #667eea;
+  border-color: #1a1a1a;
+  color: #1a1a1a;
 }
 
 .tab.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #1a1a1a;
   color: white;
-  border-color: transparent;
+  border-color: #1a1a1a;
 }
 
 .tab-content {
@@ -62,7 +62,7 @@
 
 .job-textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #1a1a1a;
 }
 
 .char-count {
@@ -94,7 +94,7 @@
 
 .job-url-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #1a1a1a;
 }
 
 .fetch-button {

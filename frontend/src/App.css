@@ -5,10 +5,9 @@
 }
 
 .App-header {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  background: #ffffff;
   padding: 2rem;
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid #e8e8e8;
 }
 
 .header-content {
@@ -19,17 +18,16 @@
 
 .App-header h1 {
   font-size: 2.5rem;
-  color: #333;
+  color: #1a1a1a;
   margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-weight: 300;
+  letter-spacing: -0.5px;
 }
 
 .App-header p {
-  color: #666;
+  color: #757575;
   font-size: 1.1rem;
+  font-weight: 300;
 }
 
 .App-main {
@@ -46,35 +44,35 @@
 }
 
 .card {
-  background: white;
-  border-radius: 12px;
+  background: #ffffff;
+  border-radius: 8px;
   padding: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e8e8e8;
 }
 
 .card h2 {
-  color: #333;
+  color: #1a1a1a;
   margin-bottom: 1.5rem;
   font-size: 1.5rem;
+  font-weight: 400;
 }
 
 .analyze-button {
   width: 100%;
   padding: 1.2rem;
   font-size: 1.2rem;
-  font-weight: 600;
-  color: white;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  border-radius: 8px;
+  font-weight: 400;
+  color: #1a1a1a;
+  background: #ffffff;
+  border: 1px solid #1a1a1a;
+  border-radius: 4px;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  transition: all 0.2s;
 }
 
 .analyze-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+  background: #1a1a1a;
+  color: #ffffff;
 }
 
 .analyze-button:disabled {
@@ -94,10 +92,10 @@
 .reset-button {
   padding: 0.8rem 1.5rem;
   font-size: 1rem;
-  color: white;
-  background: #667eea;
-  border: none;
-  border-radius: 8px;
+  color: #1a1a1a;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
   cursor: pointer;
   margin-bottom: 1.5rem;
   transition: background 0.2s;
