@@ -2,35 +2,64 @@
 FastAPI REST API for Resume Screening Service
 """
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 import tempfile
 import os
 from pathlib import Path
+import logging
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from resume_screener import ResumeAnalyzer
 from resume_screener.bias_detection import BiasDetector
 from resume_screener.explainability.enhanced_explainer import EnhancedExplainabilityEngine
 from feedback_storage import get_feedback_storage
+from config import config
+from security import (
+    verify_api_key,
+    validate_file_upload,
+    validate_text_input,
+    sanitize_filename,
+    validate_batch_size
+)
 import uuid
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 # Initialize FastAPI app
 app = FastAPI(
     title="AI Resume Screener API",
     description="Intelligent resume screening with NLP and bias detection",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/docs" if not config.REQUIRE_API_KEY else None,  # Disable docs in production
+    redoc_url="/redoc" if not config.REQUIRE_API_KEY else None
 )
 
-# CORS middleware
+# Add rate limiter to app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS middleware - Configure with specific origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=config.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-API-Key"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # Initialize components
@@ -42,9 +71,17 @@ enhanced_explainer = EnhancedExplainabilityEngine()
 # Request/Response Models
 class AnalyzeRequest(BaseModel):
     """Request model for text-based analysis"""
-    resume_text: str = Field(..., description="Resume text content")
-    job_description: str = Field(..., description="Job description text")
+    resume_text: str = Field(..., description="Resume text content", max_length=config.MAX_TEXT_LENGTH)
+    job_description: str = Field(..., description="Job description text", max_length=config.MAX_TEXT_LENGTH)
     required_skills: Optional[List[str]] = Field(None, description="Optional list of required skills")
+    
+    @model_validator(mode='after')
+    def validate_not_empty(self) -> 'AnalyzeRequest':
+        if not self.resume_text or not self.resume_text.strip():
+            raise ValueError('resume_text cannot be empty')
+        if not self.job_description or not self.job_description.strip():
+            raise ValueError('job_description cannot be empty')
+        return self
 
 
 class AnalyzeResponse(BaseModel):
@@ -94,7 +131,8 @@ class FeedbackRequest(BaseModel):
 
 # API Endpoints
 @app.get("/")
-async def root():
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute")
+async def root(request: Request):
     """Root endpoint"""
     return {
         "message": "AI Resume Screener API",
@@ -104,44 +142,64 @@ async def root():
             "analyze_file": "/api/analyze-file",
             "bias_check": "/api/bias-check",
             "health": "/health"
-        }
+        },
+        "security": config.get_settings_info()
     }
 
 
 @app.get("/health")
-async def health_check():
+@limiter.limit("60/minute")
+async def health_check(request: Request):
     """Health check endpoint"""
     return {"status": "healthy", "service": "resume-screener"}
 
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
-async def analyze_resume(request: AnalyzeRequest):
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute")
+async def analyze_resume(
+    request: Request,
+    data: AnalyzeRequest,
+    api_key: str = Depends(verify_api_key)
+):
     """
     Analyze resume text against job description
     
     Args:
-        request: AnalyzeRequest with resume and job description text
+        data: AnalyzeRequest with resume and job description text
+        api_key: API key from header (required if auth enabled)
         
     Returns:
         AnalyzeResponse with detailed analysis
     """
     try:
+        # Validate inputs
+        validate_text_input(data.resume_text, "resume_text")
+        validate_text_input(data.job_description, "job_description")
+        
+        logger.info(f"Analyzing resume (text length: {len(data.resume_text)})")
+        
         result = analyzer.analyze(
-            resume_text=request.resume_text,
-            job_description=request.job_description,
-            required_skills=request.required_skills
+            resume_text=data.resume_text,
+            job_description=data.job_description,
+            required_skills=data.required_skills
         )
         
         return AnalyzeResponse(**result.to_dict())
         
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        logger.error(f"Analysis failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Analysis failed. Please try again.")
 
 
 @app.post("/api/analyze-file")
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute")
 async def analyze_resume_file(
+    request: Request,
     resume_file: UploadFile = File(..., description="Resume file (PDF, DOCX, TXT)"),
-    job_description: str = Form(..., description="Job description text")
+    job_description: str = Form(..., description="Job description text"),
+    api_key: str = Depends(verify_api_key)
 ):
     """
     Analyze resume file against job description
@@ -149,14 +207,30 @@ async def analyze_resume_file(
     Args:
         resume_file: Uploaded resume file
         job_description: Job description text
+        api_key: API key from header (required if auth enabled)
         
     Returns:
         Analysis results
     """
     try:
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(resume_file.filename).suffix) as tmp_file:
-            content = await resume_file.read()
+        # Validate job description
+        validate_text_input(job_description, "job_description")
+        
+        # Read and validate file
+        content = await resume_file.read()
+        await validate_file_upload(content, resume_file.filename)
+        
+        # Sanitize filename
+        safe_filename = sanitize_filename(resume_file.filename or "resume.pdf")
+        
+        logger.info(f"Analyzing file: {safe_filename} ({len(content)} bytes)")
+        
+        # Save uploaded file temporarily with sanitized name
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=Path(safe_filename).suffix,
+            prefix="resume_"
+        ) as tmp_file:
             tmp_file.write(content)
             tmp_path = tmp_file.name
         
@@ -172,51 +246,75 @@ async def analyze_resume_file(
         finally:
             # Clean up temporary file
             if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+                try:
+                    os.remove(tmp_path)
+                except Exception as e:
+                    logger.warning(f"Failed to remove temp file: {e}")
     
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        logger.error(f"File analysis failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Analysis failed. Please try again.")
 
 
 @app.post("/api/bias-check", response_model=BiasCheckResponse)
-async def check_bias(request: BiasCheckRequest):
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute")
+async def check_bias(
+    request: Request,
+    data: BiasCheckRequest,
+    api_key: str = Depends(verify_api_key)
+):
     """
     Check for potential bias in resume and/or job description
     
     Args:
-        request: BiasCheckRequest with text to analyze
+        data: BiasCheckRequest with text to analyze
+        api_key: API key from header (required if auth enabled)
         
     Returns:
         BiasCheckResponse with bias detection results
     """
     try:
-        if not request.resume_text and not request.job_description:
+        if not data.resume_text and not data.job_description:
             raise HTTPException(
                 status_code=400,
                 detail="Either resume_text or job_description must be provided"
             )
         
+        # Validate text inputs if provided
+        if data.resume_text:
+            validate_text_input(data.resume_text, "resume_text")
+        if data.job_description:
+            validate_text_input(data.job_description, "job_description")
+        
         results = bias_detector.detect(
-            resume_text=request.resume_text or "",
-            job_description=request.job_description
+            resume_text=data.resume_text or "",
+            job_description=data.job_description
         )
         
         return BiasCheckResponse(
             overall_risk=results['overall_risk'],
-            resume_risk=results['resume_bias']['risk_level'] if request.resume_text else None,
+            resume_risk=results['resume_bias']['risk_level'] if data.resume_text else None,
             job_risk=results['job_bias']['risk_level'] if results['job_bias'] else None,
             warnings=results['warnings'],
             recommendations=results['recommendations']
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Bias check failed: {str(e)}")
+        logger.error(f"Bias check failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Bias check failed. Please try again.")
 
 
 @app.post("/api/batch-analyze")
+@limiter.limit(f"{config.RATE_LIMIT_PER_HOUR}/hour")
 async def batch_analyze(
+    request: Request,
     job_description: str = Form(..., description="Job description text"),
-    resume_files: List[UploadFile] = File(..., description="Multiple resume files")
+    resume_files: List[UploadFile] = File(..., description="Multiple resume files"),
+    api_key: str = Depends(verify_api_key)
 ):
     """
     Analyze multiple resumes against one job description
@@ -224,51 +322,98 @@ async def batch_analyze(
     Args:
         job_description: Job description text
         resume_files: List of resume files
+        api_key: API key from header (required if auth enabled)
         
     Returns:
         List of analysis results sorted by score
     """
     try:
+        # Validate batch size
+        await validate_batch_size(len(resume_files))
+        
+        # Validate job description
+        validate_text_input(job_description, "job_description")
+        
+        logger.info(f"Batch analysis: {len(resume_files)} files")
+        
         results = []
         
         for resume_file in resume_files:
-            # Save temporarily
-            with tempfile.NamedTemporaryFile(delete=False, suffix=Path(resume_file.filename).suffix) as tmp_file:
-                content = await resume_file.read()
-                tmp_file.write(content)
-                tmp_path = tmp_file.name
-            
             try:
-                # Analyze
-                result = analyzer.analyze(
-                    resume_path=tmp_path,
-                    job_description=job_description
-                )
+                # Read and validate file
+                content = await resume_file.read()
+                await validate_file_upload(content, resume_file.filename)
                 
-                result_dict = result.to_dict()
-                result_dict['filename'] = resume_file.filename
-                results.append(result_dict)
+                # Sanitize filename
+                safe_filename = sanitize_filename(resume_file.filename or "resume.pdf")
                 
-            finally:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
+                # Save temporarily
+                with tempfile.NamedTemporaryFile(
+                    delete=False,
+                    suffix=Path(safe_filename).suffix,
+                    prefix="batch_resume_"
+                ) as tmp_file:
+                    tmp_file.write(content)
+                    tmp_path = tmp_file.name
+                
+                try:
+                    # Analyze
+                    result = analyzer.analyze(
+                        resume_path=tmp_path,
+                        job_description=job_description
+                    )
+                    
+                    result_dict = result.to_dict()
+                    result_dict['filename'] = safe_filename
+                    results.append(result_dict)
+                    
+                finally:
+                    if os.path.exists(tmp_path):
+                        try:
+                            os.remove(tmp_path)
+                        except Exception as e:
+                            logger.warning(f"Failed to remove temp file: {e}")
+            
+            except HTTPException as e:
+                # Log validation errors but continue with other files
+                logger.warning(f"File {resume_file.filename} failed validation: {e.detail}")
+                results.append({
+                    'filename': resume_file.filename,
+                    'error': str(e.detail),
+                    'overall_score': 0
+                })
+            except Exception as e:
+                logger.error(f"Error processing {resume_file.filename}: {str(e)}")
+                results.append({
+                    'filename': resume_file.filename,
+                    'error': 'Processing failed',
+                    'overall_score': 0
+                })
         
         # Sort by score (descending)
         results.sort(key=lambda x: x['overall_score'], reverse=True)
         
         return JSONResponse(content={
             "total_resumes": len(results),
+            "successful": len([r for r in results if 'error' not in r]),
+            "failed": len([r for r in results if 'error' in r]),
             "results": results
         })
         
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Batch analysis failed: {str(e)}")
+        logger.error(f"Batch analysis failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Batch analysis failed. Please try again.")
 
 
 @app.post("/api/analyze-enhanced")
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute")
 async def analyze_enhanced(
+    request: Request,
     resume_file: UploadFile = File(..., description="Resume file (PDF, DOCX, TXT)"),
-    job_description: str = Form(..., description="Job description text")
+    job_description: str = Form(..., description="Job description text"),
+    api_key: str = Depends(verify_api_key)
 ):
     """
     Enhanced analysis with detailed explanations, ATS compatibility, and learning resources
@@ -276,6 +421,7 @@ async def analyze_enhanced(
     Args:
         resume_file: Uploaded resume file
         job_description: Job description text
+        api_key: API key from header (required if auth enabled)
         
     Returns:
         Enhanced analysis with:
@@ -286,9 +432,22 @@ async def analyze_enhanced(
         - Personalized learning roadmap
     """
     try:
+        # Validate job description
+        validate_text_input(job_description, "job_description")
+        
+        # Read and validate file
+        content = await resume_file.read()
+        await validate_file_upload(content, resume_file.filename)
+        
+        # Sanitize filename
+        safe_filename = sanitize_filename(resume_file.filename or "resume.pdf")
+        
         # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(resume_file.filename).suffix) as tmp_file:
-            content = await resume_file.read()
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=Path(safe_filename).suffix,
+            prefix="enhanced_"
+        ) as tmp_file:
             tmp_file.write(content)
             tmp_path = tmp_file.name
         
@@ -374,14 +533,24 @@ async def analyze_enhanced(
         finally:
             # Clean up temporary file
             if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+                try:
+                    os.remove(tmp_path)
+                except Exception as e:
+                    logger.warning(f"Failed to remove temp file: {e}")
     
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Enhanced analysis failed: {str(e)}")
+        logger.error(f"Enhanced analysis failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Enhanced analysis failed. Please try again.")
 
 
 @app.get("/api/skills")
-async def get_skill_database():
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute")
+async def get_skill_database(
+    request: Request,
+    api_key: str = Depends(verify_api_key)
+):
     """Get the skill database"""
     from resume_screener.parsers.skill_extractor import SkillExtractor
     
@@ -396,30 +565,43 @@ async def get_skill_database():
 
 
 @app.post("/api/feedback")
-async def submit_feedback(feedback: FeedbackRequest):
+@limiter.limit("20/minute")
+async def submit_feedback(
+    request: Request,
+    data: FeedbackRequest,
+    api_key: str = Depends(verify_api_key)
+):
     """
     Submit user feedback on analysis results
     
     Args:
-        feedback: FeedbackRequest with user's feedback
+        data: FeedbackRequest with user's feedback
+        api_key: API key from header (required if auth enabled)
         
     Returns:
         Success status and message
     """
     try:
+        # Validate comments length if provided
+        if data.comments and len(data.comments) > 5000:
+            raise HTTPException(
+                status_code=400,
+                detail="Comments too long. Maximum 5000 characters"
+            )
+        
         storage = get_feedback_storage()
         
         success = storage.save_feedback(
-            session_id=feedback.session_id,
-            overall_score=feedback.overall_score,
-            user_rating=feedback.user_rating,
-            was_helpful=feedback.was_helpful,
-            comments=feedback.comments,
-            resume_text=feedback.resume_text,
-            job_description=feedback.job_description,
-            matched_skills=feedback.matched_skills,
-            missing_skills=feedback.missing_skills,
-            score_breakdown=feedback.score_breakdown
+            session_id=data.session_id,
+            overall_score=data.overall_score,
+            user_rating=data.user_rating,
+            was_helpful=data.was_helpful,
+            comments=data.comments,
+            resume_text=data.resume_text,
+            job_description=data.job_description,
+            matched_skills=data.matched_skills,
+            missing_skills=data.missing_skills,
+            score_breakdown=data.score_breakdown
         )
         
         if success:
@@ -430,23 +612,35 @@ async def submit_feedback(feedback: FeedbackRequest):
         else:
             raise HTTPException(status_code=500, detail="Failed to save feedback")
     
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Feedback submission failed: {str(e)}")
+        logger.error(f"Feedback submission failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Feedback submission failed. Please try again.")
 
 
 @app.get("/api/feedback/stats")
-async def get_feedback_stats():
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute")
+async def get_feedback_stats(
+    request: Request,
+    api_key: str = Depends(verify_api_key)
+):
     """Get feedback statistics"""
     try:
         storage = get_feedback_storage()
         stats = storage.get_statistics()
         return stats
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+        logger.error(f"Failed to get stats: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get statistics")
 
 
 @app.post("/api/feedback/export")
-async def export_training_data():
+@limiter.limit("5/hour")
+async def export_training_data(
+    request: Request,
+    api_key: str = Depends(verify_api_key)
+):
     """Export feedback data for model training"""
     try:
         storage = get_feedback_storage()
@@ -457,7 +651,8 @@ async def export_training_data():
             "file": "training_data.json"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+        logger.error(f"Export failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Export failed")
 
 
 if __name__ == "__main__":
@@ -473,3 +668,4 @@ if __name__ == "__main__":
         port=8000,
         reload=True
     )
+

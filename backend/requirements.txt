@@ -19,6 +19,10 @@ pdfplumber>=0.9.0
 fastapi>=0.100.0
 uvicorn>=0.23.0
 pydantic>=2.0.0
+slowapi>=0.1.9
+python-multipart>=0.0.6
+python-magic>=0.4.27
+python-magic-bin>=0.4.14  # For Windows compatibility
 
 # Data Visualization
 matplotlib>=3.7.0
